@@ -51,7 +51,7 @@ def begin_snaffle(options):
     for target in options.targets:
 
         smb_client = SMBClient(
-            target, options.username, options.password, options.domain, options.hash)
+            target, options.username, options.password, options.domain, options.hash, options.shares)
         if not smb_client.login():
             log.error(f"Unable to login to{target}")
             continue

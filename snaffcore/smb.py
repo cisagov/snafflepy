@@ -47,7 +47,7 @@ class SMBClient:
                 remarkname = resp[i]['shi1_remark'][:-1]
                 # log.info(f'Found share {sharename} on {self.server}, remark {remarkname}')
 
-                if(self.share_names != "" or self.share_names != None): # if shares are empty, then scan all shares
+                if(self.share_names != None): # if shares are empty, then scan all shares
                     if(not sharename in self.share_names.split(",")): # if share is not in our list of shares to scan, skip it
                          continue
 

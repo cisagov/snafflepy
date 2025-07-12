@@ -20,7 +20,7 @@ class SMBClient:
     Wrapper around impacket's SMBConnection() object
     '''
 
-    def __init__(self, server, username, password, domain, nthash):
+    def __init__(self, server, username, password, domain, nthash, share_names):
 
         self.server = server
 
@@ -30,6 +30,7 @@ class SMBClient:
         self.password = password
         self.domain = domain
         self.nthash = nthash
+        self.share_names = share_names
         if self.nthash:
             # means no password, see https://yougottahackthat.com/blog/339/what-is-aad3b435b51404eeaad3b435b51404ee
             self.lmhash = 'aad3b435b51404eeaad3b435b51404ee'
@@ -45,6 +46,10 @@ class SMBClient:
                 sharename = resp[i]['shi1_netname'][:-1]
                 remarkname = resp[i]['shi1_remark'][:-1]
                 # log.info(f'Found share {sharename} on {self.server}, remark {remarkname}')
+
+                if(self.share_names != None): # if shares are empty, then scan all shares (otherwise)
+                    if(not sharename in self.share_names.split(",")): # if share is not in our list of shares to scan, skip it
+                         continue
 
                 share_text = termcolor.colored("[Share]", 'light_yellow')
 

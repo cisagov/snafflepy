@@ -41,6 +41,8 @@ def parse_arguments():
     
     parser.add_argument("--no-download", action='store_true', help="Don't download files, just print found file names to stdout - this can only show the top level of files from the share and is unable to recurse into subdirectories.")
 
+    parser.add_argument("-s", "--shares", action="store_true", help="Comma separated list of shares to scan. ie: hr,document,test")
+
     try:
         if len(sys.argv) <= 1:
             parser.print_help()

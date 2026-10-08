@@ -10,6 +10,15 @@ from snaffcore.logger import *
 log = logging.getLogger('snafflepy')
 log.setLevel(logging.INFO)
 
+def parse_unc_path(value):
+    """Validate and parse UNC path in \\\\server\\share format, storing each part separately."""
+    if not value.startswith("\\\\"):
+        raise argparse.ArgumentTypeError(f"UNC path must start with \\\\, got: {value}")
+    parts = value.lstrip("\\").split("\\")
+    if len(parts) < 2:
+        raise argparse.ArgumentTypeError(f"UNC path must be in format \\\\server\\share, got: {value}")
+    return {"target": parts[0], "share": parts[1]}
+
 
 def parse_arguments():
     syntax_error = False
@@ -17,7 +26,7 @@ def parse_arguments():
 
     parser = argparse.ArgumentParser(
         add_help=True, prog='snaffler.py', description='A "port" of Snaffler in python')
-    parser.add_argument("targets", nargs='+', type=make_targets,
+    parser.add_argument("targets", nargs='*', type=make_targets,
                         help="IPs, hostnames, CIDR ranges, or files contains targets to snaffle. If you are providing more than one target, the -n option must be used.")
     parser.add_argument("-u", "--username",
                         type=str, help="domain username")
@@ -41,7 +50,9 @@ def parse_arguments():
     
     parser.add_argument("--no-download", action='store_true', help="Don't download files, just print found file names to stdout - this can only show the top level of files from the share and is unable to recurse into subdirectories.")
 
-    parser.add_argument("-s", "--shares", action="store_true", help="Comma separated list of shares to scan. ie: hr,document,test")
+    parser.add_argument("-s", "--shares", action="store", help="Comma separated list of shares to scan. ie: hr,document,test")
+
+    parser.add_argument("--unc", type=parse_unc_path,metavar="UNC_PATH", help=r"Optional UNC path to a specific share. ie: \\\\192.168.1.1\\hr")
 
     try:
         if len(sys.argv) <= 1:
@@ -63,11 +74,22 @@ def parse_arguments():
                 log.setLevel('DEBUG')
 
             targets = set()
-            [[targets.add(t) for t in g] for g in options.targets]
+            shares = set()
+            if options.unc:
+                targets.add(options.unc["target"])
+                shares.add(options.unc["share"])
+            if options.targets:
+                [[targets.add(t) for t in g] for g in options.targets]
+            if options.shares:
+                [shares.add(s.strip()) for s in options.shares.split(",") if s.strip()]
+            if not targets:
+                log.error("No targets specified. Provide at least one target or a --unc path.")
+                parser.print_help()
+                sys.exit(2)
             options.targets = list(targets)
-
+            options.shares = list(shares) if shares else None
             if len(options.targets) > 1 and not options.disable_computer_discovery:
-                log.error("If you have more than one target, then the -n option must be specified.")
+                log.error("If you are have more than one target, then the -n option must be specified.")
                 sys.exit(2)
             return options
 

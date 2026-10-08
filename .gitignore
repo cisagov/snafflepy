@@ -3,3 +3,4 @@ snaffcore/__pycache__/
 .vscode
 snafflepy/
 remotefiles/
+.snafflepy-venv/

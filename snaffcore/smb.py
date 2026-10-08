@@ -48,7 +48,7 @@ class SMBClient:
                 # log.info(f'Found share {sharename} on {self.server}, remark {remarkname}')
 
                 if(self.share_names != None): # if shares are empty, then scan all shares (otherwise)
-                    if(not sharename in self.share_names.split(",")): # if share is not in our list of shares to scan, skip it
+                    if(not sharename in self.share_names): # if share is not in our list of shares to scan, skip it
                          continue
 
                 share_text = termcolor.colored("[Share]", 'light_yellow')

@@ -50,6 +50,10 @@ options:
   -n, --disable-computer-discovery
                         Disable computer discovery, requires a list of hosts to do discovery on
   --no-download         Don't download files, just print found file names to stdout - this can only show the top level of files from the share and is unable to recurse into subdirectories.
+  -s SHARES, --shares SHARES
+                        Comma separated list of shares to scan. ie: hr,document,test
+  --unc UNC_PATH        Optional UNC path to a specific share. ie: \\192.168.1.1\hr
+
 ~~~
 
 ## Examples
@@ -61,6 +65,14 @@ options:
 2. Automatically discover the domain name and identify interesting shares and find a limited number of interesting files from them  
 
 `python3 snaffler.py <IP> -u <username> -p <password> -v`
+
+3. Scan specific shares across a target range
+
+`python3 snaffler.py <IP> -u <username> -p <password> -s hr,documents -n`
+
+4. Scan a specific UNC path directly
+
+`python3 snaffler.py --unc \\\\<IP>\\hr -u <username> -p <password>`
 
 ## Output
 

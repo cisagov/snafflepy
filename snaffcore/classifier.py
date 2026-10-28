@@ -56,7 +56,7 @@ def is_interest_file(file, smb_client, share, no_download: bool):
                  ".kdb", ".psafe3", ".kwallet", ".keychain", ".agilekeychain", ".cred"]
 
     file_text = termcolor.colored(f"[File]", "green")
-    ssn_regex = str("^\d{{3}}-\d{{2}}-\d{{4}}$")
+    ssn_regex = str(r"^\d{{3}}-\d{{2}}-\d{{4}}$")
     is_interest = False
 
     # Non-file shares

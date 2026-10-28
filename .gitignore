@@ -1,4 +1,6 @@
 # created by virtualenv automatically
+build/
+snafflepy.egg-info/
 snaffcore/__pycache__/
 .vscode
 snafflepy/

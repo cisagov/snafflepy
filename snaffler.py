@@ -64,34 +64,33 @@ def parse_arguments():
         log.error(e)
         log.error('Check your syntax')
 
-    finally:
-        if syntax_error:
+    if syntax_error:
+        parser.print_help()
+        sys.exit(2)
+    else:
+        options = parser.parse_args()
+        if options.verbose:
+            log.setLevel('DEBUG')
+
+        targets = set()
+        shares = set()
+        if options.unc:
+            targets.add(options.unc["target"])
+            shares.add(options.unc["share"])
+        if options.targets:
+            [[targets.add(t) for t in g] for g in options.targets]
+        if options.shares:
+            [shares.add(s.strip()) for s in options.shares.split(",") if s.strip()]
+        if not targets:
+            log.error("No targets specified. Provide at least one target or a --unc path.")
             parser.print_help()
             sys.exit(2)
-        else:
-            options = parser.parse_args()
-            if options.verbose:
-                log.setLevel('DEBUG')
-
-            targets = set()
-            shares = set()
-            if options.unc:
-                targets.add(options.unc["target"])
-                shares.add(options.unc["share"])
-            if options.targets:
-                [[targets.add(t) for t in g] for g in options.targets]
-            if options.shares:
-                [shares.add(s.strip()) for s in options.shares.split(",") if s.strip()]
-            if not targets:
-                log.error("No targets specified. Provide at least one target or a --unc path.")
-                parser.print_help()
-                sys.exit(2)
-            options.targets = list(targets)
-            options.shares = list(shares) if shares else None
-            if len(options.targets) > 1 and not options.disable_computer_discovery:
-                log.error("If you are have more than one target, then the -n option must be specified.")
-                sys.exit(2)
-            return options
+        options.targets = list(targets)
+        options.shares = list(shares) if shares else None
+        if len(options.targets) > 1 and not options.disable_computer_discovery:
+            log.error("If you are have more than one target, then the -n option must be specified.")
+            sys.exit(2)
+        return options
 
 
 def print_banner():

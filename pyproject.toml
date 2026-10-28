@@ -1,0 +1,20 @@
+[project]
+name = "snafflepy"
+version = "0.1.0"
+description = "Snaffler reimplementation in Python (cisagov/snafflepy)"
+requires-python = ">=3.10"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools]
+py-modules = ["snaffler"]
+packages = ["snaffcore"]
+
+[project.scripts]
+snaffler = "snaffler:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

@@ -4,3 +4,6 @@ snaffcore/__pycache__/
 snafflepy/
 remotefiles/
 .snafflepy-venv/
+__pycache__/
+.pytest_cache/
+tests/**/__pycache__/

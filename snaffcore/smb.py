@@ -131,11 +131,12 @@ class SMBClient:
                     self.password = ''
                     self.domain = ''
                     self.nthash = ''
-                    guest_success = self.login(refresh=True, first_try=False)
-                    if not guest_success:
-                        log.debug(f'{self.server}: Switching to null session')
-                        self.username = ''
-                        self.login(refresh=True, first_try=False)
+                    if self.login(refresh=True, first_try=False):
+                        return True
+
+                    log.debug(f'{self.server}: Switching to null session')
+                    self.username = ''
+                    return self.login(refresh=True, first_try=False)
 
             return False
 

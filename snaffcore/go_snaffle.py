@@ -5,7 +5,8 @@ import termcolor
 from ldap3 import ALL_ATTRIBUTES, Server, Connection, DSA, ALL, SUBTREE
 # from .smb import * 
 from .utilities import *
-# from .file_handling import *
+from .smb import SMBClient
+from .file_handling import RemoteFile
 from .classifier import *
 from .errors import *
 

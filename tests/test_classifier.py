@@ -124,6 +124,41 @@ def test_content_no_false_positive(rules):
     assert hit is None
 
 
+# --- SSN / PII content rule -------------------------------------------------
+
+@pytest.mark.parametrize("name", ["employees.csv", "notes.txt", "dump.sql"])
+def test_ssn_relay_routes_document_types(rules, name):
+    relay = classify_file_name(FakeFile(name), rules)
+    assert action(relay) == "Relay"
+    assert "KeepSsnInFile" in relay.get("targets", [])
+
+
+def test_config_relay_union_includes_ssn(rules):
+    # app.config matches both the generic config relay and the PII relay; the
+    # union of their targets must still include the SSN check.
+    relay = classify_file_name(FakeFile("app.config"), rules)
+    assert "KeepSsnInFile" in relay.get("targets", [])
+
+
+def test_ssn_detected_in_content(rules):
+    relay = classify_file_name(FakeFile("employees.csv"), rules)
+    hit = classify_file_content(
+        FakeFile("employees.csv"), "name,ssn\nBob,123-45-6789\n",
+        rules, relay.get("targets"))
+    assert hit is not None and hit["RuleName"] == "KeepSsnInFile"
+
+
+@pytest.mark.parametrize("text", [
+    "call me at 555-1234 tomorrow",     # too short
+    "order 1234-56-78901 shipped",       # wrong digit grouping
+    "no numbers here at all",
+])
+def test_ssn_no_false_positive(rules, text):
+    relay = classify_file_name(FakeFile("notes.txt"), rules)
+    assert classify_file_content(
+        FakeFile("notes.txt"), text, rules, relay.get("targets")) is None
+
+
 # --- CheckForKeys --------------------------------------------------------
 
 _RULE = {"Triage": "Red", "RuleName": "t", "Description": "d"}

@@ -1,0 +1,37 @@
+[[ClassifierRules]]
+EnumerationScope = "ContentsEnumeration"
+RuleName = "KeepSsnInFile"
+MatchAction = "Snaffle"
+Description = "Files whose contents contain something shaped like a US Social Security Number."
+MatchLocation = "FileContentAsString"
+WordListType = "Regex"
+MatchLength = 0
+WordList = ["\\b\\d{3}-\\d{2}-\\d{4}\\b"]
+Triage = "Red"
+
+[[ClassifierRules]]
+EnumerationScope = "FileEnumeration"
+RuleName = "RelayDocsForPii"
+MatchAction = "Relay"
+RelayTargets = ["KeepSsnInFile"]
+Description = "Plain-text and document files that should be scanned for PII such as SSNs."
+MatchLocation = "FileExtension"
+WordListType = "Exact"
+MatchLength = 0
+WordList = ["\\.txt",
+"\\.csv",
+"\\.tsv",
+"\\.log",
+"\\.md",
+"\\.rtf",
+"\\.htm",
+"\\.html",
+"\\.xml",
+"\\.json",
+"\\.ini",
+"\\.conf",
+"\\.config",
+"\\.properties",
+"\\.env",
+"\\.sql"]
+Triage = "Red"

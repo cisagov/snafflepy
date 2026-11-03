@@ -268,6 +268,7 @@ def classify_file_name(file, rules: Rules):
     filename, extension, filepath = _file_subjects(file)
 
     relay_match = None
+    relay_targets = []
     checkkeys_match = None
 
     for rule in rules.file_classifiers:
@@ -287,14 +288,20 @@ def classify_file_name(file, rules: Rules):
             file_text = termcolor.colored("[File]", 'green')
             _triage_print(file_text, filepath, rule)
             return {'action': 'Snaffle', 'rule': rule}
-        if action == "Relay" and relay_match is None:
-            relay_match = rule
+        if action == "Relay":
+            # A file can match several Relay rules (e.g. a generic config relay
+            # and a PII-document relay). Run the union of all their content
+            # checks rather than only the first rule's.
+            if relay_match is None:
+                relay_match = rule
+            for target in rule.get('RelayTargets', []):
+                if target not in relay_targets:
+                    relay_targets.append(target)
         elif action == "CheckForKeys" and checkkeys_match is None:
             checkkeys_match = rule
 
     if relay_match is not None:
-        return {'action': 'Relay', 'rule': relay_match,
-                'targets': relay_match.get('RelayTargets', [])}
+        return {'action': 'Relay', 'rule': relay_match, 'targets': relay_targets}
     if checkkeys_match is not None:
         return {'action': 'CheckForKeys', 'rule': checkkeys_match}
     return None

@@ -67,6 +67,7 @@ Against the seeded share, SnafflePy should:
 
 - **Snaffle** `id_rsa`, `server.ppk`, `.htpasswd`
 - **Relay → content-match** `web.config` and `notes.txt` (password / api key)
+- **Relay → SSN match** `hr_export.csv` (contains US SSNs)
 - **CheckForKeys** flag `cert.pem` (contains a private-key marker)
 - **Discard / ignore** `photo.jpg`, `readme.md`, and everything under
   `Windows\system32\` and `app\node_modules\` (path Discard rules)

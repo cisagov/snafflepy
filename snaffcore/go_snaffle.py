@@ -1,9 +1,12 @@
+import os
 import sys
+import termcolor
 
 from ldap3 import ALL_ATTRIBUTES, Server, Connection, DSA, ALL, SUBTREE
 # from .smb import * 
 from .utilities import *
-# from .file_handling import *
+from .smb import SMBClient
+from .file_handling import RemoteFile
 from .classifier import *
 from .errors import *
 
@@ -34,80 +37,138 @@ def begin_snaffle(options):
         domain_names = list_computers(login, options.domain)
         for target in domain_names:
             log.info(
-                f"Found{target}, adding to targets to snaffle...")
+                f"Found {target}, adding to targets to snaffle...")
             try:
                 options.targets.append(target)
             except Exception as e:
                 log.debug(f"Exception: {e}")
-                log.warning(f"Unable to add{target} to targets to snaffle")
+                log.warning(f"Unable to add {target} to targets to snaffle")
                 continue
 
     if options.go_loud:
         log.warning(
-            "[GO LOUD ACTIVATED] Enumerating all shares for all files...")
+            "[GO LOUD ACTIVATED] Enumerating all shares and listing every file, without classification...")
     if options.no_download:
-        log.warning("[no-download] is turned on, skipping SSN check...")
+        log.warning(
+            "[no-download] is on: files will not be downloaded, so only share, "
+            "directory, file-name, extension and path rules run - content "
+            "checks (passwords, keys, SSNs, etc.) are skipped.")
         
     for target in options.targets:
 
         smb_client = SMBClient(
             target, options.username, options.password, options.domain, options.hash, options.shares)
         if not smb_client.login():
-            log.error(f"Unable to login to{target}")
+            log.error(f"Unable to login to {target}")
             continue
-        
+
         for share in smb_client.shares:
-            files = []
+            if not options.go_loud:
+                if not is_interest_share(share, snaff_rules):
+                    log.debug(
+                        f"{share} matched a Discard rule, skipping files inside of this share...")
+                    continue
+            snaffle_directory(smb_client, share, "", target, snaff_rules, options)
+
+
+def snaffle_directory(smb_client, share, path, target, rules, options):
+    '''
+    Recursively walk a share, classifying each directory and file against the
+    loaded TOML rules. Directories are detected via SMB file attributes rather
+    than by triggering download errors.
+    '''
+    try:
+        entries = list(smb_client.ls(share, path))
+    except FileListError as e:
+        log.error(f"Cannot list files at \\\\{target}\\{share}\\{path} {e}")
+        return
+
+    for entry in entries:
+        name = entry.get_longname()
+        full = f"{path}\\{name}" if path else name
+
+        if entry.is_directory():
+            dir_path = f"\\\\{target}\\{share}\\{full}"
+            if options.go_loud:
+                dir_text = termcolor.colored("[Directory]", 'light_blue')
+                log.info(f"{dir_text} {dir_path}")
+            elif not classify_directory(dir_path, rules):
+                continue
+            snaffle_directory(smb_client, share, full, target, rules, options)
+            continue
+
+        size = entry.get_filesize()
+        file = RemoteFile(full, share, target, size, smb_client)
+
+        if options.go_loud:
             try:
-                if not options.go_loud:
-                    if is_interest_share(share, snaff_rules) == False:
-                        log.debug(f"{share} matched a Discard rule, skipping files inside of this share...")
-                        continue
-                    
-                files = smb_client.ls(share, "")
+                file_text = termcolor.colored("[File]", 'green')
+                if not options.no_download:
+                    file.get(smb_client)
+                log.info(f"{file_text} \\\\{target}\\{share}\\{full}")
+            except FileRetrievalError as e:
+                log.debug(f"Could not retrieve {full}: {e}")
+            continue
 
-            
-            
-                for file in files:
-                    size = file.get_filesize()
-                    name = file.get_longname()
-                    # bad_name = name
-                    file = RemoteFile(name, share, target, size, smb_client)
+        try:
+            process_file(file, smb_client, share, rules, options)
+        except FileRetrievalError as e:
+            log.debug(f"Could not process {full}: {e}")
 
-                    if options.go_loud:
-                        try:
-                            file_text = termcolor.colored("[File]", 'green')
-                            if not options.no_download:
-                                file.get(smb_client)
-                            log.info(
-                                f"{file_text} \\\\{target}\\{share}\\{name}")
 
-                        except FileRetrievalError as e:
-                            no_add_error = False
-                            keep_dir_name = True
-                            # Check if its a directory, and try to list files/more directories here
-                            file.handle_download_error(
-                                file.name, e, options.go_loud, no_add_error)
-                            
-                    else:
-                        if size >= options.max_file_snaffle:
-                            pass
-                        else:
-                            try:
-                                is_interest_file(file, smb_client, share, options.no_download)
-                            except FileRetrievalError as e:
-                                # Error will trigger if access denied to file, or the file is actually a directory
-                                # File 
-                                # keep_dir_name = classify_directory(file.name, snaff_rules)
-                                no_add_error = False
-                                file.handle_download_error(
-                                    file.name, e, options.go_loud, no_add_error)
-                                
-            except FileListError as e:
-                log.error(f"Cannot list files at {share} {e}")
-    
-                
-           
+def process_file(file, smb_client, share, rules, options):
+    '''
+    Classify a single file by name/extension/path, then (for Relay and
+    CheckForKeys matches) download it and scan its contents.
+    '''
+    result = classify_file_name(file, rules)
+    if not result or result['action'] == "Discard":
+        return
+
+    action = result['action']
+    oversized = file.size >= options.max_file_snaffle
+
+    if action == "Snaffle":
+        # The finding has already been printed by the classifier. Grab a copy
+        # unless the user asked us not to, or the file is too large.
+        if not options.no_download and not oversized:
+            file.get(smb_client)
+        return
+
+    # Relay / CheckForKeys both need the file contents.
+    if options.no_download or oversized:
+        log.debug(
+            f"Skipping content scan of {file.name} (no-download or over max size)")
+        return
+
+    file.get(smb_client)
+    content = _read_text(file.tmp_filename)
+
+    if action == "Relay":
+        matched = classify_file_content(
+            file, content, rules, result.get('targets'))
+    else:  # CheckForKeys
+        matched = check_for_keys(file, content, result['rule'])
+
+    if matched is None:
+        # Nothing interesting inside - don't keep the local copy around.
+        _safe_remove(file.tmp_filename)
+
+
+def _read_text(path):
+    try:
+        with open(str(path), 'rb') as f:
+            return f.read().decode('utf-8', errors='replace')
+    except OSError as e:
+        log.debug(f"Could not read downloaded file {path}: {e}")
+        return ""
+
+
+def _safe_remove(path):
+    try:
+        os.remove(str(path))
+    except OSError:
+        pass
 
 def access_ldap_server(ip, username, password):
     # log.info("Accessing LDAP Server")

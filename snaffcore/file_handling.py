@@ -3,10 +3,17 @@ from .errors import *
 
 from pathlib import Path
 import os
+import re
 import termcolor
 
 
 # RT: Stolen from manspider - https://github.com/blacklanternsecurity/MANSPIDER
+
+
+def _sanitize(part):
+    '''Strip characters that are unsafe or illegal in a local filename.'''
+    part = re.sub(r'[<>:"|?*\x00-\x1f]', '_', part)
+    return part.strip() or '_'
 
 
 class RemoteFile():
@@ -23,17 +30,18 @@ class RemoteFile():
         self.size = size
         self.smb_client = smb_client
 
-        does_exist = os.path.exists("remotefiles")
-        if not does_exist:
-            log.info("remotefiles directory not present, creating dir")
-            os.makedirs("remotefiles")
-
-        # file_suffix = Path(name).suffix.lower()
-        self.tmp_filename = Path('./remotefiles') / \
-            (self.name)
-
-        # self.tmp_filename = Path('/tmp/.snafflepy') / \
-        #     (random_string(15) + file_suffix)
+        # Build a safe local destination under ./remotefiles that mirrors the
+        # remote layout. The remote name can contain Windows path separators
+        # (e.g. "dir\\sub\\file.txt") when recursing into subdirectories, so we
+        # split on them and rebuild with the local OS separator. This keeps
+        # files from different directories from clobbering each other.
+        # NOTE: the directory is only created lazily in get(), so simply
+        # constructing a RemoteFile (e.g. in --no-download mode, or for files
+        # that get discarded) never touches the filesystem.
+        safe_parts = [p for p in re.split(r'[\\/]+', str(self.name)) if p not in ('', '.', '..')]
+        self.tmp_filename = Path('remotefiles').joinpath(
+            _sanitize(str(self.target)), _sanitize(str(self.share)),
+            *[_sanitize(p) for p in safe_parts])
 
     def get(self, smb_client=None):
         '''
@@ -45,6 +53,10 @@ class RemoteFile():
 
         if smb_client is None and self.smb_client is None:
             raise FileRetrievalError('Please specify smb_client')
+
+        # Create the destination directory tree only now, when we actually
+        # have a file to write.
+        self.tmp_filename.parent.mkdir(parents=True, exist_ok=True)
 
         # memfile = io.BytesIO()
         with open(str(self.tmp_filename), 'wb') as f:
@@ -65,7 +77,7 @@ class RemoteFile():
 
     def handle_download_error(self, dir_path, err, is_from_go_loud: bool, add_err: bool):
         # subfiles = []
-        if str(err).find("DIRECTORY"):
+        if "DIRECTORY" in str(err):
             dir_text = termcolor.colored("[Directory]", 'light_blue')
 
             if is_from_go_loud:

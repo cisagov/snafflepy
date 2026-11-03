@@ -69,6 +69,13 @@ reminder: the service account api_key = "AKIAIOSFODNN7EXAMPLE1234"
 password = "hunter2hunter2"
 EOF
 
+# --- should be content-matched by the SSN / PII rule ---
+cat > "$SHARE_DIR/Users/bob/Documents/hr_export.csv" <<'EOF'
+name,department,ssn
+Alice Smith,Finance,123-45-6789
+Bob Jones,IT,987-65-4321
+EOF
+
 # --- should be CheckForKeys ---
 cat > "$SHARE_DIR/deploy/cert.pem" <<'EOF'
 -----BEGIN RSA PRIVATE KEY-----

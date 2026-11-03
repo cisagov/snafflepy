@@ -34,13 +34,14 @@ class RemoteFile():
         # remote layout. The remote name can contain Windows path separators
         # (e.g. "dir\\sub\\file.txt") when recursing into subdirectories, so we
         # split on them and rebuild with the local OS separator. This keeps
-        # files from different directories from clobbering each other and avoids
-        # writing to a parent directory that does not exist yet.
+        # files from different directories from clobbering each other.
+        # NOTE: the directory is only created lazily in get(), so simply
+        # constructing a RemoteFile (e.g. in --no-download mode, or for files
+        # that get discarded) never touches the filesystem.
         safe_parts = [p for p in re.split(r'[\\/]+', str(self.name)) if p not in ('', '.', '..')]
         self.tmp_filename = Path('remotefiles').joinpath(
             _sanitize(str(self.target)), _sanitize(str(self.share)),
             *[_sanitize(p) for p in safe_parts])
-        self.tmp_filename.parent.mkdir(parents=True, exist_ok=True)
 
     def get(self, smb_client=None):
         '''
@@ -52,6 +53,10 @@ class RemoteFile():
 
         if smb_client is None and self.smb_client is None:
             raise FileRetrievalError('Please specify smb_client')
+
+        # Create the destination directory tree only now, when we actually
+        # have a file to write.
+        self.tmp_filename.parent.mkdir(parents=True, exist_ok=True)
 
         # memfile = io.BytesIO()
         with open(str(self.tmp_filename), 'wb') as f:

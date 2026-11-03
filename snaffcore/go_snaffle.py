@@ -37,19 +37,22 @@ def begin_snaffle(options):
         domain_names = list_computers(login, options.domain)
         for target in domain_names:
             log.info(
-                f"Found{target}, adding to targets to snaffle...")
+                f"Found {target}, adding to targets to snaffle...")
             try:
                 options.targets.append(target)
             except Exception as e:
                 log.debug(f"Exception: {e}")
-                log.warning(f"Unable to add{target} to targets to snaffle")
+                log.warning(f"Unable to add {target} to targets to snaffle")
                 continue
 
     if options.go_loud:
         log.warning(
-            "[GO LOUD ACTIVATED] Enumerating all shares for all files...")
+            "[GO LOUD ACTIVATED] Enumerating all shares and listing every file, without classification...")
     if options.no_download:
-        log.warning("[no-download] is turned on, skipping SSN check...")
+        log.warning(
+            "[no-download] is on: files will not be downloaded, so only share, "
+            "directory, file-name, extension and path rules run - content "
+            "checks (passwords, keys, SSNs, etc.) are skipped.")
         
     for target in options.targets:
 

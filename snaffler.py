@@ -48,7 +48,7 @@ def parse_arguments():
     parser.add_argument("-n", "--disable-computer-discovery", action='store_true',
                         help="Disable computer discovery, requires a list of hosts to do discovery on")
     
-    parser.add_argument("--no-download", action='store_true', help="Don't download files, just print found file names to stdout - this can only show the top level of files from the share and is unable to recurse into subdirectories.")
+    parser.add_argument("--no-download", action='store_true', help="Don't download any files. Shares, directories (recursively), and file name/extension/path rules are still evaluated and printed; only content-based checks (which require reading the file) are skipped.")
 
     parser.add_argument("-s", "--shares", action="store", help="Comma separated list of shares to scan. ie: hr,document,test")
 
@@ -114,8 +114,11 @@ def main():
     begin_snaffle(snaffle_options)
 
     print("\nI snaffled 'til the snafflin was done")
-    print("View log file at ~/.snafflepy/logs/")
-    print("Files snaffled from targets are available in <PATH-TO-SNAFFLEPY>/remotefiles/")
+    print(f"View log file at {os.path.join(os.path.expanduser('~'), '.snafflepy', 'logs')}")
+    if snaffle_options.no_download:
+        print("No files were downloaded (--no-download was set).")
+    else:
+        print(f"Downloaded files are available in {os.path.abspath('remotefiles')}")
     sys.exit()
 
 

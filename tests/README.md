@@ -7,9 +7,9 @@ Two tiers of tests:
 | Unit (`test_classifier.py`) | The TOML rule engine: share/dir/file/content classification, Relay, CheckForKeys, PostMatch | No | No |
 | Integration (`integration/`) | The real SMB crawl against a live Samba share | Loopback only | Yes (to bind port 445) |
 
-## 1. One-time environment setup
+## 1. Test environment setup
 
-Use a virtualenv so dependencies stay off the system Python:
+Use a virtual environment:
 
 ```bash
 python3 -m venv .snafflepy-venv
@@ -20,7 +20,7 @@ pip install -r requirements.txt pytest
 > On Python 3.11+ the classifier uses the stdlib `tomllib`, so the `toml`
 > package is only needed on older interpreters.
 
-## 2. Unit tests (fast, run these constantly)
+## 2. Unit tests
 
 ```bash
 pytest tests/test_classifier.py -v
@@ -30,12 +30,10 @@ These load the real `snaffcore/DefaultRules/` ruleset and assert on
 classification outcomes using in-memory fake files — no SMB server involved.
 Add a case whenever you add or change a rule behavior.
 
-## 3. Integration tests (real SMB crawl)
+## 3. Integration tests
 
 A throwaway Samba server, bound to `127.0.0.1` only, seeded with files that
-should and shouldn't match. Everything lives under one lab directory; your
-system Samba config is untouched. Guest access is enabled, so no Samba user
-setup is needed.
+should and shouldn't match.
 
 **Terminal 1 — build the lab and start the server:**
 
@@ -82,7 +80,7 @@ sudo rm -rf /tmp/snafflepy-smblab    # smbd runs as root, so its state is root-o
 rm -rf remotefiles
 ```
 
-## Notes / gotchas
+## Notes
 
 - If `smbd` complains that port 445 is in use, stop the system Samba first:
   `sudo systemctl stop smbd` (or kill the running `smbd`).

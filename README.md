@@ -3,13 +3,12 @@ Snaffler reimplementation in Python - https://github.com/SnaffCon/Snaffler
 This tool works by first sending a LDAP query to the specified target to discover other domain joined machines, and then attempts to login (authenticated or not) through SMB and retrieve interesting files. 
 
 ### Current Features: 
-SnafflePy includes different options and methods of enumeration. It can discover AD joined computers automatically by performing specific LDAP queries to Active Directory and include them in its target list, or if you want to disable this, it can also manually take in a list of IPs, hostnames, or CIDR ranges as its targets. It can also return every share and filename that is readable on the target network, authenticated or unauthenticated. If the credentials provided fail, then SnafflePy will automatically attempt to login via a Guest user, and if that fails it will attempt to login via a “NULL” session. It also supports the original TOML rule formats from Snaffler and uses them to identify interesting share names and return them to the user. 
-Currently, SnafflePy can identify common password files by extension and name, backup files by extension, and SSN by regex in file content. 
+SnafflePy includes different options and methods of enumeration. It can discover AD joined computers automatically by performing specific LDAP queries to Active Directory and include them in its target list, or if you want to disable this, it can also manually take in a list of IPs, hostnames, or CIDR ranges as its targets. The LDAP queries are performed through impacket, so discovery still works against domain controllers that enforce LDAP signing or channel binding. It can also return every share and filename that is readable on the target network, authenticated or unauthenticated. If the credentials provided fail, then SnafflePy will automatically attempt to login via a Guest user, and if that fails it will attempt to login via a “NULL” session. If you provide a username but leave off the password, SnafflePy will prompt you for one, and if you leave the prompt blank it will use a blank password. It also supports the original TOML rule formats from Snaffler and uses the full classifier ruleset in `DefaultRules/` to identify interesting shares, directories, and files and return them to the user. 
+Currently, SnafflePy can identify interesting files by share name, file name, extension, and path, and it can also read the contents of files to find secrets such as passwords, API keys, private keys, and SSNs by regex, triaging each finding (Black/Green/Yellow/Red) just like Snaffler. 
 
 ### Features to Add: 
-1. Classifier system from Snaffler to find interesting files
-2. Make it way faster
-3. Output to JSON
+1. Make it way faster
+2. Output to JSON
 
 ## Use case:
 
@@ -49,7 +48,7 @@ options:
                         Max filesize to snaffle in bytes (any files over this size will be dropped)
   -n, --disable-computer-discovery
                         Disable computer discovery, requires a list of hosts to do discovery on
-  --no-download         Don't download files, just print found file names to stdout - this can only show the top level of files from the share and is unable to recurse into subdirectories.
+  --no-download         Don't download any files. Shares, directories (recursively), and file name/extension/path rules are still evaluated and printed; only content-based checks (which require reading the file) are skipped.
   -s SHARES, --shares SHARES
                         Comma separated list of shares to scan. ie: hr,document,test
   --unc UNC_PATH        Optional UNC path to a specific share. ie: \\192.168.1.1\hr
@@ -73,6 +72,22 @@ options:
 4. Scan a specific UNC path directly
 
 `python3 snaffler.py --unc \\\\<IP>\\hr -u <username> -p <password>`
+
+5. Authenticate with an NT hash instead of a password (pass-the-hash), which is used for both the SMB and LDAP connections
+
+`python3 snaffler.py <IP> -u <username> -H <nthash> -d <domain>`
+
+6. Leave off the password and SnafflePy will prompt you for it, press enter at the prompt to use a blank password
+
+`python3 snaffler.py <IP> -u <username> -d <domain>`
+
+7. Identify interesting shares, directories, and files by name without downloading anything, content-based checks are skipped
+
+`python3 snaffler.py <IP> -u <username> -p <password> --no-download`
+
+8. Raise the maximum file size in bytes so larger files are still downloaded and scanned for secrets in their contents
+
+`python3 snaffler.py <IP> -u <username> -p <password> -m 500000`
 
 ## Output
 

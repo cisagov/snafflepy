@@ -48,7 +48,7 @@ options:
                         Max filesize to snaffle in bytes (any files over this size will be dropped)
   -n, --disable-computer-discovery
                         Disable computer discovery, requires a list of hosts to do discovery on
-  --no-download         Don't download files, just print found file names to stdout - this can only show the top level of files from the share and is unable to recurse into subdirectories.
+  --no-download         Don't download any files. Shares, directories (recursively), and file name/extension/path rules are still evaluated and printed; only content-based checks (which require reading the file) are skipped.
   -s SHARES, --shares SHARES
                         Comma separated list of shares to scan. ie: hr,document,test
   --unc UNC_PATH        Optional UNC path to a specific share. ie: \\192.168.1.1\hr
@@ -68,6 +68,22 @@ options:
 3. Scan a specific UNC path directly
 
 `python3 snaffler.py --unc \\\\<IP>\\hr -u <username> -p <password>`
+
+5. Authenticate with an NT hash instead of a password (pass-the-hash), which is used for both the SMB and LDAP connections
+
+`python3 snaffler.py <IP> -u <username> -H <nthash> -d <domain>`
+
+6. Leave off the password and SnafflePy will prompt you for it, press enter at the prompt to use a blank password
+
+`python3 snaffler.py <IP> -u <username> -d <domain>`
+
+7. Identify interesting shares, directories, and files by name without downloading anything, content-based checks are skipped
+
+`python3 snaffler.py <IP> -u <username> -p <password> --no-download`
+
+8. Raise the maximum file size in bytes so larger files are still downloaded and scanned for secrets in their contents
+
+`python3 snaffler.py <IP> -u <username> -p <password> -m 500000`
 
 ## Output
 

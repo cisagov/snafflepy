@@ -2,8 +2,8 @@ import os
 import sys
 import termcolor
 
-from ldap3 import ALL_ATTRIBUTES, Server, Connection, DSA, ALL, SUBTREE
-# from .smb import * 
+from impacket.ldap import ldap as ldap_impacket, ldapasn1
+# from .smb import *
 from .utilities import *
 from .smb import SMBClient
 from .file_handling import RemoteFile
@@ -33,7 +33,8 @@ def begin_snaffle(options):
 
     else:
         login = access_ldap_server(
-            options.targets[0], options.username, options.password)
+            options.targets[0], options.username, options.password,
+            options.domain, options.hash)
         domain_names = list_computers(login, options.domain)
         for target in domain_names:
             log.info(
@@ -170,61 +171,86 @@ def _safe_remove(path):
     except OSError:
         pass
 
-def access_ldap_server(ip, username, password):
-    # log.info("Accessing LDAP Server")
-    server = Server(ip, get_info=DSA)
-    try:
-        conn = Connection(server, username, password)
-        # log.debug(server.schema)
+def access_ldap_server(ip, username, password, domain="", nthash=""):
+    '''
+    Bind to a domain controller's LDAP service using impacket.
 
-        if not conn.bind():
-            log.critical(f"Unable to bind to {server}")
-            return None
-        return conn
+    Unlike a plain ldap3 bind, impacket negotiates LDAP signing by default
+    (and channel binding when LDAPS is used), so enumeration still works against
+    DCs that enforce LDAP signing / channel binding (LDAPServerIntegrity /
+    LdapEnforceChannelBinding) -- which reject an unsigned cleartext bind.
 
-    except Exception as e:
-        log.critical(f'Error logging in to {ip}')
-        log.info("Trying guest session... ")
+    A signed bind over ldap:// is tried first (signing works over 389 without
+    TLS); ldaps:// is tried next to additionally satisfy channel-binding (EPA)
+    enforcement. Returns a bound LDAPConnection, or None.
+    '''
+    base_dn = get_domain_dn(domain) if domain else ""
 
-        try:
-            conn = Connection(server, user='Guest', password='')
-            if not conn.bind():
-                log.critical(f"Unable to bind to {server} as {username}")
-                return None
-            return conn
+    # Try the supplied credentials first; fall back to an anonymous bind so
+    # open (non-hardened) DCs still enumerate when no creds are given.
+    cred_attempts = [(username or "", password or "", nthash or "")]
+    if username:
+        cred_attempts.append(("", "", ""))
 
-        except Exception as e:
-            log.critical(f'Error logging in to {ip}, as {username}')
-            log.info("Trying null session... ")
+    for scheme in ("ldap", "ldaps"):
+        url = f"{scheme}://{ip}"
+        for user, pw, nt in cred_attempts:
+            try:
+                conn = ldap_impacket.LDAPConnection(url, base_dn, dstIp=ip)
+                conn.login(user, pw, domain, "", nt)
+                log.info(
+                    f"LDAP bind to {ip} succeeded via {scheme}:// (signed) "
+                    f"as {user or 'anonymous'}")
+                return conn
+            except ldap_impacket.LDAPSessionError as e:
+                log.debug(
+                    f"LDAP {scheme}:// bind as {user or 'anonymous'} failed: {e}")
+            except Exception as e:
+                log.debug(f"LDAP {scheme}:// connection error to {ip}: {e}")
 
-            conn = Connection(server, user='', password='')
-            if not conn.bind():
-                log.critical(f"Unable to bind to {server}")
-                return None
-            return conn
+    log.critical(
+        f"Unable to bind to LDAP on {ip} (tried signed ldap:// and ldaps://). "
+        "Check credentials and that TCP 389/636 are reachable.")
+    return None
 
 # 2nd snaffle step, finding additional targets from original target via LDAP queries
 
 
-def list_computers(connection: Connection, domain):
-    dn = get_domain_dn(domain)
+def list_computers(connection, domain):
     if connection is None:
         log.critical("Connection is not established")
         sys.exit(2)
 
+    dn = get_domain_dn(domain)
+    domain_names = []
+
     try:
-        connection.search(search_base=dn, search_filter='(&(objectCategory=Computer)(name=*))',
-                          search_scope=SUBTREE, attributes=['dNSHostName'], paged_size=500)
-        domain_names = []
-
-        for entry in connection.entries:
-            sep = str(entry).strip().split(':')
-            # Sometimes there's no dNSHostName
-            if len(sep) == 7:
-                domain_names.append(sep[6])
-
-        return domain_names
-
-    except Exception as e:
+        # impacket's search() follows the paged-results cookie internally, so a
+        # single call returns every computer object past the 1000-row MaxPageSize.
+        paged = ldap_impacket.SimplePagedResultsControl(criticality=True, size=500)
+        results = connection.search(
+            searchBase=dn,
+            searchFilter='(&(objectCategory=computer)(name=*))',
+            attributes=['dNSHostName'],
+            scope=ldapasn1.Scope('wholeSubtree'),
+            sizeLimit=0,
+            searchControls=[paged])
+    except ldap_impacket.LDAPSearchError as e:
         log.critical(f"Unable to list computers: {e}")
         return None
+
+    for item in results:
+        # Skip search-result references (referrals) and anything that isn't an entry.
+        if not isinstance(item, ldapasn1.SearchResultEntry):
+            continue
+        try:
+            for attribute in item['attributes']:
+                if str(attribute['type']) == 'dNSHostName':
+                    host = str(attribute['vals'][0])
+                    if host:
+                        domain_names.append(host)
+        except Exception as e:
+            log.debug(f"Could not parse LDAP entry: {e}")
+            continue
+
+    return domain_names

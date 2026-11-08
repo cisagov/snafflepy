@@ -2,6 +2,7 @@ import argparse
 import sys
 import logging
 import os
+import getpass
 
 from snaffcore.go_snaffle import *
 from snaffcore.utilities import *
@@ -71,6 +72,24 @@ def parse_arguments():
     options = parser.parse_args()
     if options.verbose:
         log.setLevel('DEBUG')
+
+    # Prompt for a password when a username is given but no -p/-H was supplied.
+    if not options.hash and options.username and options.password is None:
+        if sys.stdin.isatty():
+            log.info("No password supplied (-p). Press Enter to use a blank password.")
+            try:
+                options.password = getpass.getpass("Password: ")
+            except (EOFError, KeyboardInterrupt):
+                print()
+                options.password = ""
+        else:
+            log.warning(
+                "No password supplied (-p) and no terminal to prompt on; using a blank password.")
+            options.password = ""
+
+    # Normalize so a bare None never reaches impacket/ldap3.
+    if options.password is None:
+        options.password = ""
 
     targets = set()
     shares = set()

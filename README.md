@@ -87,7 +87,7 @@ options:
 
 ## Output
 
-<img width="866" alt="Screenshot 2023-08-15 at 3 40 37 PM" src="https://github.com/robert-todora/snafflepy/assets/59801737/5023092f-03cf-4430-a1b2-3dcefa256c99">
+<img width="1272" height="577" alt="Screenshot 2026-11-08 123442" src="https://github.com/user-attachments/assets/7fa8c6f2-589d-4fe6-ab30-cb4d81658666" />
 
 
 Thank you to MANSPIDER for the helpful code: https://github.com/blacklanternsecurity/MANSPIDER

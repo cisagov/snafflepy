@@ -3,8 +3,8 @@ Snaffler reimplementation in Python - https://github.com/SnaffCon/Snaffler
 This tool works by first sending a LDAP query to the specified target to discover other domain joined machines, and then attempts to login (authenticated or not) through SMB and retrieve interesting files. 
 
 ### Current Features: 
-SnafflePy includes different options and methods of enumeration. It can discover AD joined computers automatically by performing specific LDAP queries to Active Directory and include them in its target list, or if you want to disable this, it can also manually take in a list of IPs, hostnames, or CIDR ranges as its targets. The LDAP queries are performed through impacket, so discovery still works against domain controllers that enforce LDAP signing or channel binding. It can also return every share and filename that is readable on the target network, authenticated or unauthenticated. If the credentials provided fail, then SnafflePy will automatically attempt to login via a Guest user, and if that fails it will attempt to login via a “NULL” session. If you provide a username but leave off the password, SnafflePy will prompt you for one, and if you leave the prompt blank it will use a blank password. It also supports the original TOML rule formats from Snaffler and uses the full classifier ruleset in `DefaultRules/` to identify interesting shares, directories, and files and return them to the user. 
-Currently, SnafflePy can identify interesting files by share name, file name, extension, and path, and it can also read the contents of files to find secrets such as passwords, API keys, private keys, and SSNs by regex, triaging each finding (Black/Green/Yellow/Red) just like Snaffler. 
+SnafflePy includes different options and methods of enumeration. It can discover AD joined computers automatically by performing specific LDAP queries to Active Directory and include them in its target list, or if you want to disable this, it can also manually take in a list of IPs, hostnames, or CIDR ranges as its targets. It can also return every share and filename that is readable on the target network, authenticated or unauthenticated. If the credentials provided fail, then SnafflePy will automatically attempt to login via a Guest user, and if that fails it will attempt to login via a “NULL” session. It also supports the original TOML rule formats from Snaffler and uses them to identify interesting file and share names that are returned to the user. 
+Currently, SnafflePy can identify common password files by extension and name, backup files by extension, and SSN by regex in file content. 
 
 ### Features to Add: 
 1. Make it way faster
@@ -57,19 +57,15 @@ options:
 
 ## Examples
 
-1. Snaffle all files, directories, and shares and output them to stdout, files will be downloaded to `PATH-TO-PROJECT/remotefiles/` 
-
-`python3 snaffler.py <IP> -u <username> -p <password> -d <domain> --go-loud` 
-
-2. Automatically discover the domain name and identify interesting shares and find a limited number of interesting files from them  
+1. Automatically discover the domain name and identify shares and find interesting files from them  
 
 `python3 snaffler.py <IP> -u <username> -p <password> -v`
 
-3. Scan specific shares across a target range
+2. Scan specific shares across a target range
 
 `python3 snaffler.py <IP> -u <username> -p <password> -s hr,documents -n`
 
-4. Scan a specific UNC path directly
+3. Scan a specific UNC path directly
 
 `python3 snaffler.py --unc \\\\<IP>\\hr -u <username> -p <password>`
 
@@ -94,9 +90,9 @@ options:
 <img width="866" alt="Screenshot 2023-08-15 at 3 40 37 PM" src="https://github.com/robert-todora/snafflepy/assets/59801737/5023092f-03cf-4430-a1b2-3dcefa256c99">
 
 
-Thank you to MANSPIDER for the helpful code that I stole: https://github.com/blacklanternsecurity/MANSPIDER
+Thank you to MANSPIDER for the helpful code: https://github.com/blacklanternsecurity/MANSPIDER
 
-Tested with Python 3.10.6
+Tested with Python 3.14.7
 
 ## Author Information
 Robert Todora - robert.todora@cisa.dhs.gov
